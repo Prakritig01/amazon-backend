@@ -18,10 +18,6 @@ const cors = require('cors');
 app.use(cors());
 
 
-// app.get("/admin", async (req, res) => {
-//   res.json(users);
-// });
-
 app.post("/register", async (req, res) => {
   try {
     const { username, password,email } = req.body;
@@ -37,10 +33,12 @@ app.post("/register", async (req, res) => {
 });
 
 app.post("/login", async (req, res) => {
-  const { username, password,email } = req.body;
+  const {  password,email } = req.body;
 
   // Find user by username
   const user = await Users.findOne({email : email});
+  console.log("user",user);
+
 
   if (!user) {
     return res.status(401).json({ message: "Incorrect username!" });
@@ -56,13 +54,13 @@ app.post("/login", async (req, res) => {
     return res.status(500).json({ message: "Something went wrong!" });
   }
 
-  const userInfo = { username: user.username };
+  const userInfo = { username: user.username ,email: user.email};
   const token_data = { user: userInfo };
   const refresh_token = jwt.sign(token_data, process.env.REFRESH_TOKEN_SECRET);
   sessions.add(refresh_token);
 
   const token = generateToken(token_data);
-  return res.json({ token, refresh_token });
+  return res.json({ token, refresh_token, username: user.username });
 // return res.json({ message: "Logged in successfully!" });
 });
 
@@ -91,6 +89,21 @@ app.delete("/logout", async (req, res) => {
     return res.status(200).json({ message: "No op" });
   sessions.delete(refresh_token);
   return res.json({ message: "Logged out!" });
+});
+
+app.post("/user", (req, res) => {
+  const refreshToken = req.body.token;
+  console.log(refreshToken);
+  if (!refreshToken) return res.status(401).json({ message: "Unauthorized" });
+  if (!sessions.has(refreshToken)) return res.status(403).json({ message: "Forbidden" });
+
+  jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (err, data) => {
+      if (err) return res.status(403).json({ message: "Forbidden", error: err.message });
+      const { user } = data;
+      // console.log(username);
+      console.log("data",data);
+      res.json({ user });
+  });
 });
 
 function generateToken(data) {
